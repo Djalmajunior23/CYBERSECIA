@@ -46,7 +46,7 @@ dnspython==2.6.1
 shodan==1.31.0
 
 # Threat Intelligence
-stix2==3.0.1
+stix2==3.0.2
 misp-stix==2.4.183
 pycti==5.12.0
 
