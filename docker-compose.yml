@@ -1,0 +1,487 @@
+version: '3.9'
+
+services:
+  # ============================================================
+  # INFRASTRUCTURE
+  # ============================================================
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    hostname: kafka
+    container_name: cybersec-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - cybersec-net
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: cybersec-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - cybersec-net
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: cybersec-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: cybersec
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-CyberSec2026!Secure}
+      POSTGRES_DB: cybersec_ecosystem
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - cybersec-net
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    container_name: cybersec-clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./config/clickhouse:/etc/clickhouse-server/config.d
+    networks:
+      - cybersec-net
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: cybersec-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+      DB_PASSWORD: ${DB_PASSWORD:-CyberSec2026!Secure}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - cybersec-net
+
+  # ============================================================
+  # CORE AGENTS
+  # ============================================================
+
+  central_orchestrator:
+    build:
+      context: .
+      dockerfile: agents/central_orchestrator/Dockerfile
+    container_name: cybersec-orchestrator
+    environment:
+      - AGENT_ID=central_orchestrator
+      - AGENT_TYPE=orchestrator
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/0
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - LOG_LEVEL=INFO
+      - HITL_ENABLED=true
+      - HITL_TIMEOUT=300
+    volumes:
+      - ./config:/app/config
+      - ./prompts/system:/app/prompts
+    networks:
+      - cybersec-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_started
+    restart: unless-stopped
+
+  discovery_agent:
+    build:
+      context: .
+      dockerfile: agents/discovery/Dockerfile
+    container_name: cybersec-discovery
+    environment:
+      - AGENT_ID=discovery_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/1
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - NMAP_PRIVILEGED=true
+      - RATE_LIMIT=1000
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+    restart: unless-stopped
+
+  vulnerability_agent:
+    build:
+      context: .
+      dockerfile: agents/vulnerability/Dockerfile
+    container_name: cybersec-vulnerability
+    environment:
+      - AGENT_ID=vulnerability_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/2
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - NVD_API_KEY=${NVD_API_KEY:-}
+      - VULDB_API_KEY=${VULDB_API_KEY:-}
+      - VULN_NVD_LOOKUPS_ENABLED=${VULN_NVD_LOOKUPS_ENABLED:-true}
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+    restart: unless-stopped
+
+  threat_intel_agent:
+    build:
+      context: .
+      dockerfile: agents/threat_intel/Dockerfile
+    container_name: cybersec-threatintel
+    environment:
+      - AGENT_ID=threat_intel_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/3
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - MISP_URL=${MISP_URL:-}
+      - MISP_API_KEY=${MISP_API_KEY:-}
+      - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY:-}
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+    restart: unless-stopped
+
+  behavioral_agent:
+    build:
+      context: .
+      dockerfile: agents/behavioral/Dockerfile
+    container_name: cybersec-behavioral
+    environment:
+      - AGENT_ID=behavioral_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/4
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - MODEL_PATH=/app/models
+    volumes:
+      - ./models:/app/models
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+      - clickhouse
+    restart: unless-stopped
+
+  response_orchestrator:
+    build:
+      context: .
+      dockerfile: agents/response/Dockerfile
+    container_name: cybersec-response
+    environment:
+      - AGENT_ID=response_orchestrator
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/5
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - SOAR_ENABLED=true
+      - EDR_API_KEY=${EDR_API_KEY:-}
+      - FIREWALL_API_KEY=${FIREWALL_API_KEY:-}
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+    restart: unless-stopped
+
+  governance_agent:
+    build:
+      context: .
+      dockerfile: agents/governance/Dockerfile
+    container_name: cybersec-governance
+    environment:
+      - AGENT_ID=governance_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/6
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - AUDIT_IMMUTABLE=true
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+    restart: unless-stopped
+
+  # ============================================================
+  # EXPANSION AGENTS
+  # ============================================================
+
+  red_team_agent:
+    build:
+      context: .
+      dockerfile: agents/red_team/Dockerfile
+    container_name: cybersec-redteam
+    environment:
+      - AGENT_ID=red_team_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/7
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - TEST_ENV_ONLY=true
+      - PYRIT_ENABLED=true
+      - GARAK_ENABLED=true
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+    restart: unless-stopped
+
+  soar_agent:
+    build:
+      context: .
+      dockerfile: agents/soar/Dockerfile
+    container_name: cybersec-soar
+    environment:
+      - AGENT_ID=soar_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/8
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - PLAYBOOKS_DIR=/app/playbooks
+      - SIEM_URL=${SIEM_URL:-}
+      - SIEM_API_KEY=${SIEM_API_KEY:-}
+    volumes:
+      - ./playbooks:/app/playbooks
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+    restart: unless-stopped
+
+  purple_team_agent:
+    build:
+      context: .
+      dockerfile: agents/purple_team/Dockerfile
+    container_name: cybersec-purpleteam
+    environment:
+      - AGENT_ID=purple_team_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/9
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - ATOMIC_RED_TEAM_PATH=/app/atomic
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+      - red_team_agent
+    restart: unless-stopped
+
+  mcp_auditor_agent:
+    build:
+      context: .
+      dockerfile: agents/mcp_auditor/Dockerfile
+    container_name: cybersec-mcp-auditor
+    environment:
+      - AGENT_ID=mcp_auditor_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/10
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - MCP_CONFIG_PATH=/app/config/mcp_servers.json
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+    restart: unless-stopped
+
+  digital_twin_agent:
+    build:
+      context: .
+      dockerfile: agents/digital_twin/Dockerfile
+    container_name: cybersec-digitaltwin
+    environment:
+      - AGENT_ID=digital_twin_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/11
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - SIMULATION_NETWORK=172.30.0.0/16
+      - ISOLATED=true
+    networks:
+      - cybersec-net
+      - twin-sandbox:
+          ipv4_address: 172.30.0.2
+    depends_on:
+      - central_orchestrator
+    restart: unless-stopped
+
+  threat_hunt_agent:
+    build:
+      context: .
+      dockerfile: agents/threat_hunt/Dockerfile
+    container_name: cybersec-threathunt
+    environment:
+      - AGENT_ID=threat_hunt_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/12
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - HUNT_MODEL_PATH=/app/models/hunt_drl.pt
+    volumes:
+      - ./models:/app/models
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+      - clickhouse
+    restart: unless-stopped
+
+  compliance_agent:
+    build:
+      context: .
+      dockerfile: agents/compliance/Dockerfile
+    container_name: cybersec-compliance
+    environment:
+      - AGENT_ID=compliance_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/13
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - LGPD_ENABLED=true
+      - EU_AI_ACT_ENABLED=true
+      - NIST_AI_RMF_ENABLED=true
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+    restart: unless-stopped
+
+  forensic_agent:
+    build:
+      context: .
+      dockerfile: agents/forensic/Dockerfile
+    container_name: cybersec-forensic
+    environment:
+      - AGENT_ID=forensic_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/14
+      - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
+      - EVIDENCE_STORAGE=/app/evidence
+      - CHAIN_OF_CUSTODY=true
+    volumes:
+      - forensic-evidence:/app/evidence
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+    restart: unless-stopped
+
+
+  correlation_agent:
+    build:
+      context: .
+      dockerfile: agents/correlation/Dockerfile
+    container_name: cybersec-correlation
+    environment:
+      - AGENT_ID=correlation_agent
+      - AGENT_TYPE=worker
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/15
+      - STATE_REDIS_URL=redis://redis:6379/0
+      - GRAPH_REBUILD_INTERVAL=${GRAPH_REBUILD_INTERVAL:-120}
+      - DEFENSIVE_CONTROLS_FILE=/app/config/knowledge_graph/defensive_controls.json
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+      - redis
+    restart: unless-stopped
+
+  # ============================================================
+  # UI & API GATEWAY
+  # ============================================================
+
+  api_gateway:
+    build:
+      context: .
+      dockerfile: services/api_gateway/Dockerfile
+    container_name: cybersec-api
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_BROKER=kafka:29092
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=${JWT_SECRET:-CyberSecJWT2026!}
+      - RATE_LIMIT=1000
+      - API_ADMIN_TOKEN=${API_ADMIN_TOKEN:-}
+      - CORS_ORIGINS=http://localhost:3001
+    networks:
+      - cybersec-net
+    depends_on:
+      - central_orchestrator
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: services/dashboard/Dockerfile
+    container_name: cybersec-dashboard
+    ports:
+      - "3001:3000"
+    networks:
+      - cybersec-net
+    depends_on:
+      - api_gateway
+    restart: unless-stopped
+
+volumes:
+  kafka-data:
+  redis-data:
+  postgres-data:
+  clickhouse-data:
+  grafana-data:
+  forensic-evidence:
+
+networks:
+  cybersec-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  twin-sandbox:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16

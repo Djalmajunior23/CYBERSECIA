@@ -1,0 +1,14 @@
+apiVersion: 1
+
+datasources:
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    user: cybersec
+    secureJsonData:
+      password: ${DB_PASSWORD}
+    jsonData:
+      database: cybersec_ecosystem
+      sslmode: disable
+    editable: true

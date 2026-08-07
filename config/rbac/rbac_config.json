@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "roles": {
+    "orchestrator": {
+      "permissions": ["task_assign", "task_cancel", "global_query", "agent_status", "incident_escalate"],
+      "resources": ["*"]
+    },
+    "worker": {
+      "permissions": ["task_execute", "result_report", "peer_query", "heartbeat"],
+      "resources": ["mcp.agent.{agent_id}"]
+    },
+    "governance": {
+      "permissions": ["audit_read", "policy_enforce", "block_action", "violation_review"],
+      "resources": ["mcp.audit.*", "mcp.agent.*"]
+    },
+    "human_analyst": {
+      "permissions": ["hitl_approve", "hitl_deny", "incident_view", "report_read"],
+      "resources": ["mcp.human.hitl", "incident.*"]
+    },
+    "redteam_operator": {
+      "permissions": ["adversarial_test", "shadow_discovery", "report_write"],
+      "resources": ["test.env.*"]
+    }
+  },
+  "abac_rules": [
+    {
+      "name": "classification_restriction",
+      "condition": "message.classification == 'restricted'",
+      "required_roles": ["orchestrator", "governance"],
+      "effect": "deny"
+    },
+    {
+      "name": "scope_violation_block",
+      "condition": "task.scope.authorized == false",
+      "effect": "block",
+      "notify": ["governance", "central_orchestrator"]
+    }
+  ]
+}

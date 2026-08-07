@@ -1,0 +1,39 @@
+playbook: insider_threat_response_v2
+version: "2.0"
+description: "Response playbook for insider threat detection"
+trigger:
+  condition: "behavioral_alert.insider_threat == true AND confidence > 85"
+  severity: high
+  hitl_required: true
+
+steps:
+  - monitor:
+      action: "increase_monitoring"
+      target: "{{alert.user_id}}"
+      level: "enhanced"
+      duration: "24h"
+      authorization: auto
+
+  - preserve:
+      action: "preserve_logs"
+      target: "{{alert.user_id}}"
+      types: ["email", "file_access", "network", "authentication"]
+      retention: "7_years"
+      authorization: auto
+
+  - restrict:
+      action: "apply_dlp_policy"
+      target: "{{alert.user_id}}"
+      restrictions: ["block_usb", "block_cloud_upload", "block_email_external"]
+      authorization: hitl
+
+  - investigate:
+      action: "trigger_forensic_investigation"
+      target: "{{alert.user_workstation}}"
+      scope: "full_disk_analysis"
+      authorization: hitl
+
+  - report:
+      action: "generate_insider_report"
+      confidential: true
+      recipients: ["hr", "legal", "security_manager"]

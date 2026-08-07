@@ -1,0 +1,39 @@
+playbook: phishing_response_v2
+version: "2.0"
+description: "Response playbook for phishing incidents"
+trigger:
+  condition: "email_gateway.detects_phishing == true"
+  severity: medium
+
+steps:
+  - quarantine:
+      action: "quarantine_email"
+      target: "{{alert.message_id}}"
+      scope: "all_recipients"
+      authorization: auto
+
+  - block_sender:
+      action: "block_email_sender"
+      target: "{{alert.sender}}"
+      platforms: ["email_gateway", "spam_filter"]
+      authorization: auto
+
+  - url_block:
+      action: "block_malicious_url"
+      target: "{{alert.urls}}"
+      platforms: ["proxy", "dns", "firewall"]
+      authorization: auto
+
+  - user_notify:
+      action: "notify_users"
+      message: "You received a phishing email. Do not click links."
+      method: "email"
+
+  - hunt:
+      action: "search_similar_emails"
+      time_range: "last_24h"
+      criteria: ["sender_domain", "subject_pattern", "attachment_hash"]
+
+  - report:
+      action: "generate_phishing_report"
+      include: ["email_headers", "url_analysis", "attachment_analysis", "user_clicks"]

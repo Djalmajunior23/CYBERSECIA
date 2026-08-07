@@ -1,0 +1,10 @@
+{
+  "default": {
+    "criticality": 5.0,
+    "internet_exposed": null,
+    "environment": "unknown",
+    "business_service": "unclassified",
+    "owner": "unassigned"
+  },
+  "profiles": []
+}

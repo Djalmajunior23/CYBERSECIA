@@ -1,0 +1,77 @@
+playbook: ransomware_response_v3
+version: "3.0"
+description: "Automated response playbook for ransomware incidents"
+trigger:
+  condition: "edr.detects_encryption == true OR siem.detects_mass_file_modification == true"
+  severity: critical
+  auto_execute: false  # Requires HITL for critical
+
+steps:
+  - alert:
+      action: "send_notification"
+      recipients: ["soc_l3", "incident_commander", "ciso"]
+      template: "ransomware_alert"
+      priority: p1
+
+  - snapshot:
+      action: "create_forensic_snapshot"
+      target: "{{alert.affected_host}}"
+      authorization: auto
+      preserve_state: true
+
+  - isolate_source:
+      action: "network_isolate"
+      target: "{{alert.affected_host}}"
+      preserve_internet: true  # For C2 analysis
+      authorization: hitl
+      timeout: 300
+
+  - identify:
+      action: "identify_ransomware_family"
+      methods: ["behavior_analysis", "file_extension", "ransom_note"]
+      output: "family_name"
+
+  - contain:
+      action: "block_c2"
+      target: "{{identified_c2_ips}}"
+      platforms: ["perimeter_firewall", "dns_sinkhole"]
+      authorization: auto
+
+  - scope:
+      action: "identify_lateral_movement"
+      methods: ["auth_logs", "network_flows", "smb_connections"]
+      time_range: "last_72h"
+
+  - eradicate:
+      action: "terminate_encryption"
+      target: "{{alert.affected_host}}"
+      methods: ["kill_process", "delete_payload", "remove_persistence"]
+      authorization: hitl
+
+  - recover:
+      action: "restore_from_backup"
+      backup_type: "immutable"
+      verify_integrity: true
+      authorization: hitl
+
+  - verify:
+      action: "post_incident_scan"
+      methods: ["full_av_scan", "persistence_check", "registry_audit"]
+      success_criteria: "no_malware_detected"
+
+  - report:
+      action: "generate_incident_report"
+      include: ["timeline", "ioc_list", "impact_assessment", "lessons_learned"]
+      recipients: ["soc_l3", "management", "legal"]
+
+escalation:
+  condition: "affected_hosts > 5"
+  action: "escalate_to_p1"
+  notify: ["ciso", "ceo", "legal"]
+
+rollback:
+  enabled: true
+  steps:
+    - "re_enable_network"
+    - "restore_original_firewall_rules"
+    - "notify_users"

@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "authorized_servers": [
+    {
+      "name": "nvd_cve_lookup",
+      "transport": "http",
+      "url": "https://services.nvd.nist.gov/rest/json/cves/2.0",
+      "oauth_scopes": ["read:cve"],
+      "rate_limit": 10,
+      "allowed_agents": ["vulnerability_agent"]
+    },
+    {
+      "name": "misp_intel",
+      "transport": "http",
+      "url": "https://misp.internal/events/restSearch",
+      "oauth_scopes": ["read:events", "read:attributes"],
+      "rate_limit": 100,
+      "allowed_agents": ["threat_intel_agent"]
+    },
+    {
+      "name": "edr_api",
+      "transport": "http",
+      "url": "https://edr.internal/api/v1",
+      "oauth_scopes": ["read:endpoints", "write:isolate"],
+      "rate_limit": 50,
+      "allowed_agents": ["response_orchestrator", "soar_agent"]
+    }
+  ],
+  "prohibited_servers": [],
+  "audit_all_mcp_traffic": true
+}

@@ -1,0 +1,118 @@
+{
+  "version": "2026.08",
+  "description": "Curated defensive-control seed for explainable graph coverage. Extend with organization-specific controls.",
+  "techniques": {
+    "T1190": [
+      {
+        "id": "M1050",
+        "name": "Exploit Protection",
+        "framework": "MITRE ATT&CK",
+        "status": "recommended"
+      },
+      {
+        "id": "PR.IP-12",
+        "name": "Vulnerability Management",
+        "framework": "NIST CSF",
+        "status": "recommended"
+      }
+    ],
+    "T1133": [
+      {
+        "id": "M1035",
+        "name": "Limit Access to Resource Over Network",
+        "framework": "MITRE ATT&CK",
+        "status": "recommended"
+      },
+      {
+        "id": "PR.AA-05",
+        "name": "Access Permissions and Least Privilege",
+        "framework": "NIST CSF",
+        "status": "recommended"
+      }
+    ],
+    "T1078": [
+      {
+        "id": "M1027",
+        "name": "Password Policies",
+        "framework": "MITRE ATT&CK",
+        "status": "recommended"
+      },
+      {
+        "id": "M1032",
+        "name": "Multi-factor Authentication",
+        "framework": "MITRE ATT&CK",
+        "status": "recommended"
+      }
+    ],
+    "T1021": [
+      {
+        "id": "M1035",
+        "name": "Limit Access to Resource Over Network",
+        "framework": "MITRE ATT&CK",
+        "status": "recommended"
+      },
+      {
+        "id": "M1030",
+        "name": "Network Segmentation",
+        "framework": "MITRE ATT&CK",
+        "status": "recommended"
+      }
+    ],
+    "T1059": [
+      {
+        "id": "M1042",
+        "name": "Disable or Remove Feature or Program",
+        "framework": "MITRE ATT&CK",
+        "status": "recommended"
+      },
+      {
+        "id": "M1049",
+        "name": "Antivirus/Antimalware",
+        "framework": "MITRE ATT&CK",
+        "status": "recommended"
+      }
+    ],
+    "T1566": [
+      {
+        "id": "M1017",
+        "name": "User Training",
+        "framework": "MITRE ATT&CK",
+        "status": "recommended"
+      },
+      {
+        "id": "M1049",
+        "name": "Antivirus/Antimalware",
+        "framework": "MITRE ATT&CK",
+        "status": "recommended"
+      }
+    ],
+    "T1486": [
+      {
+        "id": "PR.DS-11",
+        "name": "Backups and Recovery",
+        "framework": "NIST CSF",
+        "status": "recommended"
+      },
+      {
+        "id": "M1040",
+        "name": "Behavior Prevention on Endpoint",
+        "framework": "MITRE ATT&CK",
+        "status": "recommended"
+      }
+    ],
+    "T1003": [
+      {
+        "id": "M1043",
+        "name": "Credential Access Protection",
+        "framework": "MITRE ATT&CK",
+        "status": "recommended"
+      },
+      {
+        "id": "PR.AA-05",
+        "name": "Least Privilege",
+        "framework": "NIST CSF",
+        "status": "recommended"
+      }
+    ]
+  }
+}

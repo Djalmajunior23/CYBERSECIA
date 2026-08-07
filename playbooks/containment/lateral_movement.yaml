@@ -1,0 +1,48 @@
+playbook: lateral_movement_containment_v3
+version: "3.0"
+description: "Containment playbook for detected lateral movement"
+trigger:
+  condition: "behavioral_alert.lateral_movement == true AND risk_score > 8.0"
+  severity: high
+
+steps:
+  - snapshot:
+      action: "create_forensic_snapshot"
+      target: "{{alert.source_host}}"
+      authorization: auto
+
+  - isolate_source:
+      action: "network_isolate"
+      target: "{{alert.source_host}}"
+      preserve_internet: true
+      authorization: auto_if_p3_else_hitl
+
+  - disable_account:
+      action: "disable_ad_account"
+      target: "{{alert.user_id}}"
+      reset_password: true
+      force_mfa: true
+      authorization: auto_if_p3_else_hitl
+
+  - revoke_sessions:
+      action: "revoke_all_sessions"
+      target: "{{alert.user_id}}"
+      platforms: ["vpn", "cloud", "email"]
+      authorization: auto
+
+  - hunt_scope:
+      action: "trigger_threat_hunt"
+      hypothesis: "Same TTPs across environment for user {{alert.user_id}}"
+      scope: "last_72h"
+      authorization: auto
+
+  - notify:
+      action: "send_notification"
+      recipients: ["soc_l3", "ir_manager", "asset_owner"]
+      template: "lateral_movement_alert"
+
+  - escalate:
+      action: "escalate_if_unresolved"
+      condition: "alert.status == 'open' after 30 minutes"
+      target: "ciso"
+      authorization: auto

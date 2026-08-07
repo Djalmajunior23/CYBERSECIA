@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "description": "Authorized network scanning scopes",
+  "networks": [
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16"
+  ],
+  "exclusions": [
+    "10.0.1.1",
+    "192.168.1.1"
+  ],
+  "ot_networks": [
+    "192.168.100.0/24"
+  ],
+  "cloud_vpcs": [
+    "10.1.0.0/16"
+  ],
+  "update_frequency": "weekly",
+  "approval_required": true
+}

@@ -1,0 +1,44 @@
+playbook: ai_agent_compromise_v1
+version: "1.0"
+description: "Response playbook for suspected AI agent compromise"
+trigger:
+  condition: "behavioral_alert.ai_agent_anomaly == true"
+  severity: critical
+  hitl_required: true
+
+steps:
+  - isolate_agent:
+      action: "isolate_ai_agent"
+      target: "{{alert.agent_id}}"
+      method: "disable_mcp_transport"
+      preserve_memory: true
+      authorization: hitl
+
+  - preserve_state:
+      action: "dump_agent_state"
+      target: "{{alert.agent_id}}"
+      include: ["memory", "tool_history", "mcp_logs", "prompt_log"]
+      authorization: auto
+
+  - analyze:
+      action: "forensic_analysis"
+      target: "{{alert.agent_id}}"
+      focus: ["prompt_injection_traces", "tool_misuse", "goal_drift"]
+      authorization: auto
+
+  - redteam_validate:
+      action: "request_redteam_assessment"
+      target: "{{alert.agent_id}}"
+      scope: "full_adversarial_test"
+      authorization: hitl
+
+  - notify:
+      action: "notify_ai_governance"
+      recipients: ["ai_ethics_board", "ciso", "legal"]
+      classification: "restricted"
+
+  - recovery:
+      action: "restore_agent_from_clean_state"
+      target: "{{alert.agent_id}}"
+      verify_integrity: true
+      authorization: hitl
