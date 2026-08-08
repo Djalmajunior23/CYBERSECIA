@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { getApiUrl } from '../config'
 
 export default function AgentStatus() {
   const [agents, setAgents] = useState([])
@@ -8,7 +9,7 @@ export default function AgentStatus() {
     let active = true
     const load = async () => {
       try {
-        const response = await fetch('/api/agents')
+        const response = await fetch(getApiUrl('/api/agents'))
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const data = await response.json()
         if (active) {

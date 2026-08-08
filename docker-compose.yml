@@ -107,6 +107,7 @@ services:
     volumes:
       - ./config:/app/config
       - ./prompts/system:/app/prompts
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -134,6 +135,8 @@ services:
     cap_add:
       - NET_RAW
       - NET_ADMIN
+    volumes:
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -154,6 +157,8 @@ services:
       - NVD_API_KEY=${NVD_API_KEY:-}
       - VULDB_API_KEY=${VULDB_API_KEY:-}
       - VULN_NVD_LOOKUPS_ENABLED=${VULN_NVD_LOOKUPS_ENABLED:-true}
+    volumes:
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -174,6 +179,8 @@ services:
       - MISP_URL=${MISP_URL:-}
       - MISP_API_KEY=${MISP_API_KEY:-}
       - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY:-}
+    volumes:
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -195,6 +202,7 @@ services:
       - MODEL_PATH=/app/models
     volumes:
       - ./models:/app/models
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -216,6 +224,8 @@ services:
       - SOAR_ENABLED=true
       - EDR_API_KEY=${EDR_API_KEY:-}
       - FIREWALL_API_KEY=${FIREWALL_API_KEY:-}
+    volumes:
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -234,6 +244,8 @@ services:
       - REDIS_URL=redis://redis:6379/6
       - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
       - AUDIT_IMMUTABLE=true
+    volumes:
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -258,6 +270,8 @@ services:
       - TEST_ENV_ONLY=true
       - PYRIT_ENABLED=true
       - GARAK_ENABLED=true
+    volumes:
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -280,6 +294,7 @@ services:
       - SIEM_API_KEY=${SIEM_API_KEY:-}
     volumes:
       - ./playbooks:/app/playbooks
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -298,6 +313,8 @@ services:
       - REDIS_URL=redis://redis:6379/9
       - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
       - ATOMIC_RED_TEAM_PATH=/app/atomic
+    volumes:
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -317,6 +334,8 @@ services:
       - REDIS_URL=redis://redis:6379/10
       - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
       - MCP_CONFIG_PATH=/app/config/mcp_servers.json
+    volumes:
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -336,6 +355,8 @@ services:
       - DB_URL=postgresql://cybersec:${DB_PASSWORD}@postgres:5432/cybersec_ecosystem
       - SIMULATION_NETWORK=172.30.0.0/16
       - ISOLATED=true
+    volumes:
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
       - twin-sandbox:
@@ -359,6 +380,7 @@ services:
       - HUNT_MODEL_PATH=/app/models/hunt_drl.pt
     volumes:
       - ./models:/app/models
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -380,6 +402,8 @@ services:
       - LGPD_ENABLED=true
       - EU_AI_ACT_ENABLED=true
       - NIST_AI_RMF_ENABLED=true
+    volumes:
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -401,6 +425,7 @@ services:
       - CHAIN_OF_CUSTODY=true
     volumes:
       - forensic-evidence:/app/evidence
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:
@@ -421,6 +446,8 @@ services:
       - STATE_REDIS_URL=redis://redis:6379/0
       - GRAPH_REBUILD_INTERVAL=${GRAPH_REBUILD_INTERVAL:-120}
       - DEFENSIVE_CONTROLS_FILE=/app/config/knowledge_graph/defensive_controls.json
+    volumes:
+      - ./mcp:/app/mcp
     networks:
       - cybersec-net
     depends_on:

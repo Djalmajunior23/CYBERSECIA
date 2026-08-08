@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { getApiUrl } from '../config'
 
 const severityToPriority = {
   critical: 'p1',
@@ -17,7 +18,7 @@ export default function IncidentView() {
     let active = true
     const load = async () => {
       try {
-        const response = await fetch('/api/incidents')
+        const response = await fetch(getApiUrl('/api/incidents'))
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const data = await response.json()
         if (active) {

@@ -125,6 +125,13 @@ class MCPClient:
         # Subscribe to own topic
         self._consumer.subscribe([f"mcp.agent.{config.agent_id}"])
 
+        # Register public key in Redis
+        pubkey_bytes = self._public_key.public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw
+        )
+        self._redis.set(f"mcp:agent:{config.agent_id}:pubkey", pubkey_bytes.hex())
+
         logger.info(f"MCP Client initialized for agent: {config.agent_id}")
 
     def _load_or_generate_key(self) -> ed25519.Ed25519PrivateKey:
@@ -342,6 +349,27 @@ class MCPClient:
                 if mcp_msg.security.integrity_hash != expected_hash:
                     logger.error(f"Integrity check failed for message {mcp_msg.message_id}")
                     self._audit_log("critical", f"Integrity failure on message from {mcp_msg.envelope.from_addr.agent_id}")
+                    continue
+
+                # Verify sender signature
+                sender_id = mcp_msg.envelope.from_addr.agent_id
+                signature_hex = mcp_msg.security.signature
+
+                if not signature_hex:
+                    logger.error(f"Missing signature for message {mcp_msg.message_id} from {sender_id}")
+                    self._audit_log("critical", f"Authentication failure: Missing signature on message from {sender_id}")
+                    continue
+
+                pubkey_hex = self._redis.get(f"mcp:agent:{sender_id}:pubkey")
+                if not pubkey_hex:
+                    logger.error(f"Public key not registered for agent {sender_id}. Cannot verify message {mcp_msg.message_id}")
+                    self._audit_log("critical", f"Authentication failure: Missing registered public key for {sender_id}")
+                    continue
+
+                pubkey_bytes = bytes.fromhex(pubkey_hex)
+                if not self._verify_signature(pubkey_bytes, mcp_msg.payload.model_dump(), signature_hex):
+                    logger.error(f"Signature verification failed for message {mcp_msg.message_id} from {sender_id}")
+                    self._audit_log("critical", f"Authentication failure: Invalid signature from {sender_id}")
                     continue
 
                 # Route to handlers

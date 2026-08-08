@@ -5,6 +5,7 @@ import AgentStatus from './components/AgentStatus'
 import IncidentView from './components/IncidentView'
 import VulnerabilityView from './components/VulnerabilityView'
 import IntelligenceGraphView from './components/IntelligenceGraphView'
+import { getWsUrl } from './config'
 import './styles.css'
 
 function App() {
@@ -18,8 +19,7 @@ function App() {
     let stopped = false
 
     const connect = () => {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      ws = new WebSocket(`${protocol}//${window.location.host}/ws`)
+      ws = new WebSocket(getWsUrl())
 
       ws.onopen = () => setWsConnected(true)
       ws.onmessage = (event) => {

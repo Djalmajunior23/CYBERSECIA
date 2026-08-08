@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { getApiUrl } from '../config'
 
 export default function HITLQueue() {
   const [queue, setQueue] = useState([])
@@ -7,7 +8,7 @@ export default function HITLQueue() {
 
   const loadQueue = async () => {
     try {
-      const response = await fetch('/api/hitl')
+      const response = await fetch(getApiUrl('/api/hitl'))
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       setQueue(await response.json())
       setError('')
@@ -32,7 +33,7 @@ export default function HITLQueue() {
 
     setBusy(item.request_id)
     try {
-      const response = await fetch(`/api/hitl/${encodeURIComponent(item.request_id)}/decision`, {
+      const response = await fetch(getApiUrl(`/api/hitl/${encodeURIComponent(item.request_id)}/decision`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-Key': token },
         body: JSON.stringify({
