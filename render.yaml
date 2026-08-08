@@ -12,8 +12,7 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: REDIS_URL
-        fromService:
-          type: redis
+        fromDatabase:
           name: cybersecia-redis
           property: connectionString
       - key: CORS_ORIGINS
@@ -23,7 +22,8 @@ services:
       - key: JWT_SECRET
         generateValue: true
 
-redis:
+databases:
   - name: cybersecia-redis
+    type: redis
     plan: free
     region: oregon
