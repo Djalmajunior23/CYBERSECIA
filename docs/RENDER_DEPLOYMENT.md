@@ -26,10 +26,9 @@ Siga este passo a passo para criar o Web Service de forma totalmente manual:
    * **Name**: `cybersecia-api`
    * **Region**: `oregon` (ou de sua preferência)
    * **Branch**: `main`
-   * **Root Directory**: `services/api_gateway` *(Crucial para isolar o monorepo!)*
-   * **Runtime**: `Python`
-   * **Build Command**: `pip install -r requirements.txt`
-   * **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   * **Root Directory**: *(Apague o conteúdo e deixe este campo **totalmente vazio/em branco**)*
+   * **Runtime**: `Docker`
+   * **Dockerfile Path**: `Dockerfile`
    * **Instance Type**: `Free`
 5. Clique na seção **Advanced** (Configurações Avançadas) no final da página e ajuste:
    * **Health Check Path**: `/health`
