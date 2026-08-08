@@ -8,7 +8,8 @@ Este documento orienta o processo de deploy automatizado e publicação segura d
 
 * **Tecnologia**: Python + FastAPI
 * **Servidor**: Uvicorn
-* **Banco de Cache/Estado**: Redis Gerenciado (Plano Gratuito)
+* **Banco de Dados (Relacional)**: PostgreSQL Gerenciado na **Neon** (externo)
+* **Banco de Cache/Estado**: Redis Serverless na **Upstash** (externo)
 * **WebSocket**: Nativo e suportado no endpoint `/ws`
 * **Health Check**: Endpoint `/health` integrado ao ping do Redis
 
@@ -32,11 +33,11 @@ O Render detecta automaticamente a configuração de infraestrutura através do 
 3. Conecte sua conta do GitHub e selecione o repositório `Djalmajunior23/CYBERSECIA`.
 4. Preencha as seguintes informações na tela de criação de Blueprint:
    * **Blueprint Name**: `cybersecia-production`
-   * **Branch**: `main` (ou a branch técnica correspondente)
+   * **Branch**: `main`
    * **Blueprint Path**: `render.yaml`
-5. O Render lerá o arquivo de Blueprint, detectará o serviço de Web Service Python (`cybersecia-api`) e o banco de dados Redis (`cybersecia-redis`).
-6. Preencha as variáveis de ambiente necessárias que estão marcadas para preenchimento manual (**CORS_ORIGINS** e **API_ADMIN_TOKEN**).
-7. Clique em **Apply** para iniciar o provisionamento e o deploy.
+5. O Render lerá o arquivo de Blueprint, detectará o serviço de Web Service Python (`cybersecia-api`).
+6. Preencha as variáveis de ambiente necessárias que estão marcadas para preenchimento manual (**REDIS_URL**, **DATABASE_URL**, **CORS_ORIGINS** e **API_ADMIN_TOKEN**).
+7. Clique em **Apply** para iniciar o deploy.
 
 ---
 
@@ -45,7 +46,8 @@ O Render detecta automaticamente a configuração de infraestrutura através do 
 | Variável | Obrigatória | Padrão / Exemplo | Descrição |
 | :--- | :---: | :--- | :--- |
 | `ENVIRONMENT` | Sim | `production` | Modo de execução do ecossistema. |
-| `REDIS_URL` | Sim | *(Auto-injetada pelo Render)* | URL de conexão segura com o Redis. |
+| `REDIS_URL` | Sim | `redis://default:senha@upstash.io:6379` | URL de conexão com a instância gratuita do Redis (ex: Upstash). |
+| `DATABASE_URL` | Sim | `postgresql://user:password@neon.tech/cybersec` | URL de conexão com a instância gratuita do PostgreSQL (ex: Neon). |
 | `CORS_ORIGINS` | Sim | `https://cybersecia.vercel.app` | Domínios do frontend autorizados a fazer chamadas de API (separados por vírgula). |
 | `API_ADMIN_TOKEN` | Sim | `change-me-to-a-strong-token` | Chave de autorização utilizada para as decisões críticas HITL (Aprovação Humana). |
 | `JWT_SECRET` | Sim | *(Auto-gerada pelo Render)* | Segredo criptográfico para geração de tokens JWT seguros. |
@@ -84,3 +86,4 @@ O Render detecta automaticamente a configuração de infraestrutura através do 
 
 ### Rollback:
 * Se um deploy falhar ou apresentar comportamentos inesperados, você pode clicar em **Rollback** no painel do Render e escolher uma das builds bem-sucedidas anteriores para restaurar o serviço instantaneamente.
+
