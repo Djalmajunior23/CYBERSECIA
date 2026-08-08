@@ -12,10 +12,7 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: REDIS_URL
-        fromService:
-          name: cybersecia-redis
-          type: redis
-          property: connectionString
+        value: redis://cybersecia-redis:6379
       - key: CORS_ORIGINS
         sync: false
       - key: API_ADMIN_TOKEN
@@ -23,8 +20,12 @@ services:
       - key: JWT_SECRET
         generateValue: true
 
-databases:
-  - name: cybersecia-redis
-    type: redis
-    plan: free
+  - type: pserv
+    name: cybersecia-redis
+    env: docker
     region: oregon
+    dockerImagePath: redis:alpine
+    disk:
+      name: redis-data
+      mountPath: /data
+      sizeGB: 1
