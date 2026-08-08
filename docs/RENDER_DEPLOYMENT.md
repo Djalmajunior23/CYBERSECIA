@@ -1,6 +1,6 @@
-# Guia de Deploy no Render — CyberSec IA API Gateway
+# Guia de Deploy Manual no Render — CyberSec IA API Gateway
 
-Este documento orienta o processo de deploy automatizado e publicação segura do backend/API Gateway do ecossistema CyberSec IA na plataforma **Render** utilizando arquivos de Blueprint (`render.yaml`).
+Este documento orienta o processo de deploy manual e publicação segura do backend/API Gateway do ecossistema CyberSec IA na plataforma **Render** através da interface gráfica (Web Service tradicional).
 
 ---
 
@@ -15,67 +15,49 @@ Este documento orienta o processo de deploy automatizado e publicação segura d
 
 ---
 
-## 2. Preparação do Repositório e Blueprint
+## 2. Passo a Passo para o Deploy no Painel do Render (Sem Blueprint)
 
-O Render detecta automaticamente a configuração de infraestrutura através do arquivo [render.yaml](file:///c:/VIBE%20CODING/CYBERSECIA/render.yaml) localizado na raiz do repositório.
-
-### Detalhes do Blueprint:
-* **Blueprint Name**: `cybersecia-production` ou `cybersecia-staging`
-* **Branch**: `main` (produção) ou `feature/render-deployment` (staging)
-* **Blueprint Path**: `render.yaml`
-
----
-
-## 3. Passo a Passo para o Deploy no Painel do Render
+Siga este passo a passo para criar o Web Service de forma totalmente manual:
 
 1. Acesse o [Render Dashboard](https://dashboard.render.com).
-2. Clique no botão **New +** e selecione a opção **Blueprint**.
-3. Conecte sua conta do GitHub e selecione o repositório `Djalmajunior23/CYBERSECIA`.
-4. Preencha as seguintes informações na tela de criação de Blueprint:
-   * **Blueprint Name**: `cybersecia-production`
+2. Clique no botão **New +** no canto superior direito e selecione a opção **Web Service**.
+3. Conecte sua conta do GitHub e selecione o repositório **`Djalmajunior23/CYBERSECIA`**.
+4. Na tela de configurações do serviço, preencha os seguintes campos de forma exata:
+   * **Name**: `cybersecia-api`
+   * **Region**: `oregon` (ou de sua preferência)
    * **Branch**: `main`
-   * **Blueprint Path**: `render.yaml`
-5. O Render lerá o arquivo de Blueprint, detectará o serviço de Web Service Python (`cybersecia-api`).
-6. Preencha as variáveis de ambiente necessárias que estão marcadas para preenchimento manual (**REDIS_URL**, **DATABASE_URL**, **CORS_ORIGINS** e **API_ADMIN_TOKEN**).
-7. Clique em **Apply** para iniciar o deploy.
+   * **Root Directory**: `services/api_gateway` *(Crucial para isolar o monorepo!)*
+   * **Runtime**: `Python`
+   * **Build Command**: `pip install -r requirements.txt`
+   * **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   * **Instance Type**: `Free`
+5. Clique na seção **Advanced** (Configurações Avançadas) no final da página e ajuste:
+   * **Health Check Path**: `/health`
+6. Na mesma seção Advanced, clique em **Add Environment Variable** para preencher as variáveis do backend:
+
+### Variáveis de Ambiente Obrigatórias:
+
+| Chave | Valor Recomendado / Exemplo | Descrição |
+| :--- | :--- | :--- |
+| `ENVIRONMENT` | `production` | Modo de execução do ecossistema. |
+| `REDIS_URL` | `redis://default:senha@upstash.io:6379` | URL de conexão com a sua instância do Redis na Upstash. |
+| `DATABASE_URL` | `postgresql://user:password@neon.tech/cybersec` | URL de conexão com o banco PostgreSQL no Neon. |
+| `CORS_ORIGINS` | `https://cybersecia.vercel.app` | URLs do frontend separadas por vírgula. |
+| `API_ADMIN_TOKEN` | `seu-token-secreto-de-administrador` | Chave de autorização de decisões HITL. |
+| `JWT_SECRET` | `gerar-um-segredo-forte-de-32-caracteres` | Chave de criptografia dos tokens JWT. |
+
+7. Clique em **Create Web Service** no final da página para iniciar a build e o deploy.
 
 ---
 
-## 4. Variáveis de Ambiente
+## 3. Monitoramento e Validação
 
-| Variável | Obrigatória | Padrão / Exemplo | Descrição |
-| :--- | :---: | :--- | :--- |
-| `ENVIRONMENT` | Sim | `production` | Modo de execução do ecossistema. |
-| `REDIS_URL` | Sim | `redis://default:senha@upstash.io:6379` | URL de conexão com a instância gratuita do Redis (ex: Upstash). |
-| `DATABASE_URL` | Sim | `postgresql://user:password@neon.tech/cybersec` | URL de conexão com a instância gratuita do PostgreSQL (ex: Neon). |
-| `CORS_ORIGINS` | Sim | `https://cybersecia.vercel.app` | Domínios do frontend autorizados a fazer chamadas de API (separados por vírgula). |
-| `API_ADMIN_TOKEN` | Sim | `change-me-to-a-strong-token` | Chave de autorização utilizada para as decisões críticas HITL (Aprovação Humana). |
-| `JWT_SECRET` | Sim | *(Auto-gerada pelo Render)* | Segredo criptográfico para geração de tokens JWT seguros. |
+### Visualizar Logs:
+* No painel do Render, vá até o seu serviço `cybersecia-api` e clique na aba **Logs** para inspecionar requisições e conexões do WebSocket em tempo real.
 
-> [!WARNING]
-> Nunca versione chaves secretas ou tokens de produção reais no repositório. Use variáveis de ambiente do Render para mantê-las seguras.
-
----
-
-## 5. Build, Start e Porta no Render
-
-* **Root Directory**: `services/api_gateway` (o Render isola o monorepo e executa a compilação nesta pasta).
-* **Build Command**: `pip install -r requirements.txt` (instala apenas as dependências mínimas necessárias do API Gateway).
-* **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-* **Health Check**: Rota `/health`.
-* **Porta**: O Render injeta dinamicamente a variável de ambiente `$PORT`. O uvicorn lê essa porta de forma transparente.
-
----
-
-## 6. Monitoramento, Logs e Solução de Problemas (Troubleshooting)
-
-### Visualizar Logs de Execução:
-* No painel do Render, navegue até o serviço `cybersecia-api`.
-* Clique na aba **Logs** para inspecionar requisições, conexões WebSocket e mensagens de inicialização.
-
-### Verificação de Saúde:
-* Faça uma requisição HTTP GET para `https://<seu-app-do-render>.onrender.com/health`.
-* Resposta esperada:
+### Teste de Saúde:
+* Acesse `https://cybersecia-api.onrender.com/health` (ou a URL real fornecida pelo Render).
+* Resposta de sucesso esperada:
   ```json
   {
     "status": "healthy",
@@ -83,7 +65,3 @@ O Render detecta automaticamente a configuração de infraestrutura através do 
     "timestamp": "2026-08-07T22:39:00Z"
   }
   ```
-
-### Rollback:
-* Se um deploy falhar ou apresentar comportamentos inesperados, você pode clicar em **Rollback** no painel do Render e escolher uma das builds bem-sucedidas anteriores para restaurar o serviço instantaneamente.
-
