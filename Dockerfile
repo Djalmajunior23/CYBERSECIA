@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.14-slim
 WORKDIR /app
 
 # Copia o requirements do api_gateway usando a estrutura do repositório
