@@ -420,6 +420,185 @@ async def attack_paths(
         return []
 
 
+PLAYBOOKS_DATA = [
+    {
+        "id": "ransomware_response",
+        "title": "Ransomware Response & Containment",
+        "category": "incident_response",
+        "version": "3.0",
+        "severity": "critical",
+        "description": "Resposta automatizada e isolamento imediato para contenção de surtos de ransomware e criptografia de arquivos.",
+        "trigger": "edr.detects_encryption == true OR siem.detects_mass_file_modification == true",
+        "auto_execute": False,
+        "requires_hitl": True,
+        "sla_minutes": 15,
+        "steps": [
+            {"id": "alert", "name": "Notificação SOC L3", "action": "send_notification", "auth": "auto", "priority": "p1"},
+            {"id": "snapshot", "name": "Snapshot Forense", "action": "create_forensic_snapshot", "auth": "auto", "preserve_state": True},
+            {"id": "isolate", "name": "Isolamento de Rede", "action": "network_isolate", "auth": "hitl", "timeout": 300},
+            {"id": "identify", "name": "Identificar Família Malware", "action": "identify_ransomware_family", "auth": "auto"},
+            {"id": "contain", "name": "Bloqueio C2 IP/DNS", "action": "block_c2", "auth": "auto"},
+            {"id": "eradicate", "name": "Terminar Processo Malicioso", "action": "terminate_encryption", "auth": "hitl"},
+            {"id": "recover", "name": "Restaurar de Backup Imutável", "action": "restore_from_backup", "auth": "hitl"},
+            {"id": "report", "name": "Gerar Relatório Pós-Incidente", "action": "generate_incident_report", "auth": "auto"},
+        ],
+    },
+    {
+        "id": "phishing_response",
+        "title": "Phishing & Credential Harvester Containment",
+        "category": "incident_response",
+        "version": "2.1",
+        "severity": "high",
+        "description": "Contenção de ataques de engenharia social, revogação de sessões e bloqueio de domínios maliciosos.",
+        "trigger": "email_gateway.phishing_score > 0.85 OR user.reports_credential_leak == true",
+        "auto_execute": True,
+        "requires_hitl": False,
+        "sla_minutes": 30,
+        "steps": [
+            {"id": "triage", "name": "Triagem da Mensagem", "action": "parse_email_headers", "auth": "auto"},
+            {"id": "revoke_session", "name": "Revogar Sessões de Usuário", "action": "revoke_active_sessions", "auth": "auto"},
+            {"id": "reset_credentials", "name": "Redefinição Forçada de Senha", "action": "force_password_reset", "auth": "auto"},
+            {"id": "block_url", "name": "Bloqueio de URL no Proxy", "action": "block_domain_proxy", "auth": "auto"},
+            {"id": "quarantine", "name": "Quarentena em Lote na Caixa", "action": "quarantine_inbox_messages", "auth": "hitl"},
+            {"id": "notify", "name": "Alerta de Conscientização", "action": "send_awareness_alert", "auth": "auto"},
+        ],
+    },
+    {
+        "id": "insider_threat",
+        "title": "Insider Threat & Data Exfiltration Lock",
+        "category": "behavioral_threat",
+        "version": "2.0",
+        "severity": "high",
+        "description": "Detecção de comportamento anômalo UEBA, bloqueio de exportação de dados sensíveis e auditoria LGPD/NIST.",
+        "trigger": "ueba.anomaly_score > 8.5 AND dlp.mass_data_download == true",
+        "auto_execute": False,
+        "requires_hitl": True,
+        "sla_minutes": 20,
+        "steps": [
+            {"id": "log_capture", "name": "Captura de Trilha UEBA", "action": "snapshot_user_activity", "auth": "auto"},
+            {"id": "restrict_access", "name": "Restringir Privilégios IAM", "action": "revert_to_least_privilege", "auth": "auto"},
+            {"id": "block_usb_cloud", "name": "Bloquear USB e Armazenamento Cloud", "action": "disable_removable_media", "auth": "hitl"},
+            {"id": "forensic_dump", "name": "Dump de Memória e Sessão", "action": "collect_volatile_memory", "auth": "auto"},
+            {"id": "escalate", "name": "Escalar para Governança e Jurídico", "action": "notify_compliance_officer", "auth": "auto"},
+        ],
+    },
+    {
+        "id": "ai_agent_compromise",
+        "title": "AI Agent Prompt Injection & Poisoning Defense",
+        "category": "ai_security",
+        "version": "1.5",
+        "severity": "critical",
+        "description": "Proteção ativa contra ataques de injeção de prompt adversarial, envenenamento de ferramentas MCP e desvio de alinhamento.",
+        "trigger": "mcp_auditor.detects_prompt_injection == true OR red_team.tool_poisoning == true",
+        "auto_execute": True,
+        "requires_hitl": True,
+        "sla_minutes": 10,
+        "steps": [
+            {"id": "sandbox_isolate", "name": "Isolamento de Agente em Sandbox", "action": "isolate_agent_context", "auth": "auto"},
+            {"id": "purge_memory", "name": "Purga de Cache RAG / Memória Efêmera", "action": "purge_agent_memory", "auth": "auto"},
+            {"id": "revert_weights", "name": "Reverter Prompt do Sistema", "action": "reset_system_prompt", "auth": "auto"},
+            {"id": "hitl_audit", "name": "Auditoria de Alinhamento MCP", "action": "mcp_security_audit", "auth": "hitl"},
+            {"id": "restore", "name": "Reativação do Agente com Guardrails", "action": "enable_strict_guardrails", "auth": "auto"},
+        ],
+    },
+    {
+        "id": "lateral_movement",
+        "title": "Lateral Movement & Zero-Day Isolation",
+        "category": "containment",
+        "version": "2.5",
+        "severity": "critical",
+        "description": "Bloqueio dinâmico de movimentação lateral de atacantes na rede local e aplicação de micro-segmentação de emergência.",
+        "trigger": "correlation.technique == 'T1021' AND network.suspicious_smb_rpc == true",
+        "auto_execute": False,
+        "requires_hitl": True,
+        "sla_minutes": 15,
+        "steps": [
+            {"id": "micro_segment", "name": "Micro-Segmentação da Sub-rede", "action": "apply_zero_trust_vlan", "auth": "hitl"},
+            {"id": "block_rpc_smb", "name": "Bloquear Portas 445/135/5985 Inter-hosts", "action": "drop_lateral_ports", "auth": "auto"},
+            {"id": "invalidate_tokens", "name": "Invalidar Tokens Kerberos/NTLM", "action": "flush_kerberos_tickets", "auth": "auto"},
+            {"id": "scan_neighbors", "name": "Varredura de Agentes Vizinhos", "action": "scan_adjacent_assets", "auth": "auto"},
+            {"id": "report", "name": "Relatório de Vetor de Ataque", "action": "generate_attack_path_summary", "auth": "auto"},
+        ],
+    },
+]
+
+
+@app.get("/api/playbooks")
+async def playbooks() -> List[Dict[str, Any]]:
+    return PLAYBOOKS_DATA
+
+
+@app.get("/api/playbooks/executions")
+async def playbook_executions() -> List[Dict[str, Any]]:
+    try:
+        raw = await redis_client.hgetall("mcp:soar:executions")
+        items = [item for value in raw.values() if (item := _loads(value, None))]
+        return sorted(items, key=lambda item: item.get("started_at", ""), reverse=True)
+    except Exception as exc:
+        logger.warning(f"Erro ao buscar histórico de execuções SOAR: {exc}")
+        return []
+
+
+class PlaybookExecuteRequest(BaseModel):
+    target_host: Optional[str] = Field(default="192.168.1.100", max_length=120)
+    operator: Optional[str] = Field(default="SOC Admin", max_length=120)
+    mode: Literal["simulation", "live"] = "simulation"
+
+
+@app.post("/api/playbooks/{playbook_id}/execute")
+async def execute_playbook(playbook_id: str, body: Optional[PlaybookExecuteRequest] = None) -> Dict[str, Any]:
+    target = body.target_host if body and body.target_host else "192.168.1.100"
+    operator = body.operator if body and body.operator else "SOC Admin"
+    mode = body.mode if body else "simulation"
+
+    pb = next((p for p in PLAYBOOKS_DATA if p["id"] == playbook_id), None)
+    if not pb:
+        raise HTTPException(status_code=404, detail="Playbook não encontrado")
+
+    execution_id = f"exec_{playbook_id}_{int(datetime.now(timezone.utc).timestamp())}"
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    execution_record = {
+        "execution_id": execution_id,
+        "playbook_id": playbook_id,
+        "title": pb["title"],
+        "severity": pb["severity"],
+        "target_host": target,
+        "operator": operator,
+        "mode": mode,
+        "status": "completed" if not pb["requires_hitl"] else "hitl_pending",
+        "started_at": now_iso,
+        "total_steps": len(pb["steps"]),
+        "current_step": len(pb["steps"]) if not pb["requires_hitl"] else 2,
+        "steps_detail": pb["steps"],
+    }
+
+    try:
+        await redis_client.hset("mcp:soar:executions", execution_id, json.dumps(execution_record, ensure_ascii=False))
+        await redis_client.xadd(
+            "mcp:audit:events",
+            {
+                "timestamp": now_iso,
+                "agent_id": "response_orchestrator",
+                "level": "info" if mode == "simulation" else "warning",
+                "message": f"SOAR Playbook {pb['title']} executado no modo {mode} para o alvo {target}",
+                "event_id": execution_id,
+            },
+        )
+    except Exception as exc:
+        logger.warning(f"Aviso ao registrar execução no Redis: {exc}")
+
+    return {
+        "status": "success",
+        "execution_id": execution_id,
+        "playbook": pb["title"],
+        "mode": mode,
+        "target": target,
+        "message": f"Playbook {pb['title']} iniciado com sucesso no modo {mode}.",
+        "execution": execution_record,
+    }
+
+
 @app.websocket("/ws")
 async def websocket_stats(websocket: WebSocket) -> None:
     await websocket.accept()
