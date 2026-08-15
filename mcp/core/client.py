@@ -12,9 +12,15 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Callable, Coroutine
 from dataclasses import dataclass, field
-
 import redis
-from confluent_kafka import Producer, Consumer, KafkaError
+try:
+    from confluent_kafka import Producer, Consumer, KafkaError
+    HAS_KAFKA = True
+except ImportError:
+    Producer = None
+    Consumer = None
+    KafkaError = None
+    HAS_KAFKA = False
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, rsa, padding
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -120,17 +126,18 @@ class MCPClient:
         })
 
         # Redis (for audit, cache, HITL queues)
-        self._redis = redis.from_url(config.redis_url, decode_responses=True)
-
-        # Subscribe to own topic
-        self._consumer.subscribe([f"mcp.agent.{config.agent_id}"])
-
-        # Register public key in Redis
-        pubkey_bytes = self._public_key.public_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PublicFormat.Raw
-        )
-        self._redis.set(f"mcp:agent:{config.agent_id}:pubkey", pubkey_bytes.hex())
+        try:
+            self._redis = redis.from_url(config.redis_url, decode_responses=True)
+            if HAS_KAFKA and self._consumer:
+                self._consumer.subscribe([f"mcp.agent.{config.agent_id}"])
+            pubkey_bytes = self._public_key.public_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PublicFormat.Raw
+            )
+            self._redis.set(f"mcp:agent:{config.agent_id}:pubkey", pubkey_bytes.hex())
+        except Exception as e:
+            logger.warning(f"Redis/Kafka offline fallback activated: {e}")
+            self._redis = None
 
         logger.info(f"MCP Client initialized for agent: {config.agent_id}")
 
