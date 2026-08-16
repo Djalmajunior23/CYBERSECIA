@@ -6,6 +6,7 @@ import IncidentView from './components/IncidentView'
 import VulnerabilityView from './components/VulnerabilityView'
 import IntelligenceGraphView from './components/IntelligenceGraphView'
 import SOARPlaybookView from './components/SOARPlaybookView'
+import ComplianceGovernanceView from './components/ComplianceGovernanceView'
 import { getWsUrl, getApiUrl, getStoredBackendUrl, setStoredBackendUrl } from './config'
 import './styles.css'
 
@@ -106,6 +107,7 @@ function App() {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'playbooks', label: 'Playbooks SOAR', icon: '⚡' },
+    { id: 'compliance', label: 'Governança & LGPD', icon: '⚖️' },
     { id: 'hitl', label: 'Fila HITL', icon: '👤' },
     { id: 'agents', label: 'Agentes', icon: '🤖' },
     { id: 'vulnerabilities', label: 'Vulnerabilidades', icon: '🧩' },
@@ -132,7 +134,7 @@ function App() {
           <span className={`ws-indicator ${wsConnected ? 'online' : 'offline'}`}>
             {wsConnected ? '🟢 Conectado' : '🔴 Desconectado'}
           </span>
-          <span className="version">v1.4.0</span>
+          <span className="version">v1.5.0</span>
         </div>
       </header>
 
@@ -171,6 +173,7 @@ function App() {
       <main className="content">
         {activeTab === 'dashboard' && <Dashboard stats={stats} wsConnected={wsConnected} />}
         {activeTab === 'playbooks' && <SOARPlaybookView />}
+        {activeTab === 'compliance' && <ComplianceGovernanceView />}
         {activeTab === 'hitl' && <HITLQueue />}
         {activeTab === 'agents' && <AgentStatus />}
         {activeTab === 'vulnerabilities' && <VulnerabilityView />}
